@@ -6,6 +6,7 @@ Backend (FastAPI) is scaffolded under unified_connector_backend with:
 - Encryption service (Fernet)
 - API routes: / (health), /api/connectors, /api/connections
 - Logging and config with Ocean Professional theme metadata
+- Tenant scoping and structured JSON logging (X-Tenant-Id and correlation IDs)
 
 Getting started:
 1) cd unified_connector_backend
@@ -18,10 +19,14 @@ python -m src.api.generate_openapi
 
 Key environment variables:
 - MONGODB_URL, MONGODB_DB
-- ENCRYPTION_KEY (Fernet key)
+- ENCRYPTION_KEY (Fernet key; required for production)
 - LOG_LEVEL, LOG_JSON
 - API_PREFIX
 
+Headers to include on API calls:
+- X-Tenant-Id: tenant/workspace scoping
+- X-Request-Id (optional): for distributed tracing; server will generate one if absent
+
 OpenAPI docs at /docs when running.
 
-Note: Example connectors (PostgreSQL, Salesforce) are stubs for development.
+Note: Example connectors (PostgreSQL, Salesforce) are stubs for development. Jira and Confluence are production-grade examples.

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.config import get_settings
 from src.core.logging_config import configure_logging
+from src.core.middleware import TenantContextMiddleware
 from src.db.mongo import close_mongo_client
 from .routes.health import router as health_router
 from .routes.connectors import router as connectors_router
@@ -15,8 +16,14 @@ settings = get_settings()
 
 openapi_tags = [
     {"name": "Health", "description": "Service health endpoints"},
-    {"name": "Connectors", "description": "Manage connectors and start jobs"},
-    {"name": "Connections", "description": "Manage connections and credentials"},
+    {
+        "name": "Connectors",
+        "description": "Manage connectors and start jobs. All requests should include X-Tenant-Id and optional X-Request-Id for correlation.",
+    },
+    {
+        "name": "Connections",
+        "description": "Manage connections and credentials. Include X-Tenant-Id to scope to tenant.",
+    },
     {"name": "WebSocket", "description": "Real-time WebSocket/SSE documentation"},
 ]
 
@@ -25,6 +32,10 @@ app = FastAPI(
     openapi_tags=openapi_tags,
 )
 
+# Tenant and observability middleware
+app.add_middleware(TenantContextMiddleware)
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ALLOW_ORIGINS,

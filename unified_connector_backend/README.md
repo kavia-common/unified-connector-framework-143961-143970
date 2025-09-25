@@ -6,6 +6,7 @@ Backend (FastAPI) is scaffolded under unified_connector_backend with:
 - Encryption service (Fernet)
 - API routes: / (health), /api/connectors, /api/connections
 - Logging and config with Ocean Professional theme metadata
+- NEW: Tenant-scoping middleware and structured JSON logging with correlation IDs and masking
 
 Key endpoints (enveloped):
 - GET   /api/connectors
@@ -48,7 +49,7 @@ python -m src.api.generate_openapi
 
 Key environment variables:
 - MONGODB_URL, MONGODB_DB
-- ENCRYPTION_KEY (Fernet key)
+- ENCRYPTION_KEY (Fernet key) — REQUIRED for production
 - LOG_LEVEL, LOG_JSON
 - API_PREFIX
 
@@ -85,4 +86,28 @@ or OAuth2:
   "scopes": ["read:jira-work", "offline_access"]
 }
 
-Security: Do not hardcode secrets; use /api/connections/token for encrypted storage.
+Security:
+- Do not hardcode secrets; use /api/connections/token for encrypted storage.
+- ENCRYPTION_KEY must be set in production. Without it, an ephemeral key is generated for development and secrets will not persist across restarts.
+- Secrets are masked in logs by default (password/secret/token/client_secret/api_key/authorization fields are redacted).
+
+Tenant context and correlation IDs:
+- All API calls should include:
+  - X-Tenant-Id: required to scope operations to a tenant/workspace.
+  - X-Request-Id (or X-Correlation-Id): optional; if absent, the server generates one.
+- Middleware attaches these to request.state.tenant_id and request.state.correlation_id.
+- Logs include tenant_id and request_id fields for traceability.
+- Optional X-Api-Tag header can be sent to label calls for dashboards.
+
+Logging:
+- Enable JSON logs by setting LOG_JSON=true in .env (recommended for production).
+- Each request emits a single structured completion log with:
+  - method, path, status_code, duration_ms, tenant_id, request_id, api_tag.
+- Error counts and basic request timing are captured as placeholders for future metrics integration.
+
+Metrics (placeholder):
+- In-memory counters and durations are recorded in middleware as a stepping stone for a real metrics backend (e.g., Prometheus).
+- Replace with a proper metrics client in production.
+
+Environment:
+- See .env.example for required and optional variables, including LOG_JSON and ENCRYPTION_KEY.
