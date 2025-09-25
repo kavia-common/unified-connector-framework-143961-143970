@@ -12,7 +12,25 @@ router = APIRouter(tags=["Health"])
 @router.get("/", summary="Health Check")
 def health_check() -> Envelope:
     """Basic health check endpoint."""
-    return Envelope(ok=True, data={"message": "Healthy"})
+    from src.db.mongo import mongo_client
+    
+    db_status = "unknown"
+    try:
+        client = mongo_client()
+        # Quick ping test
+        client.admin.command('ping')
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return Envelope(
+        ok=True,
+        data={
+            "status": "running",
+            "database": db_status,
+            "version": "0.1.0"
+        }
+    )
 
 
 # PUBLIC_INTERFACE

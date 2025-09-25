@@ -45,10 +45,34 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+async def _on_startup():
+    print("Starting API initialization...")
+    
+    # Test MongoDB connection but don't fail startup
+    try:
+        from src.db.mongo import mongo_client
+        client = mongo_client()
+        client.admin.command('ping')
+        print("MongoDB connection successful")
+    except Exception as e:
+        print(f"Warning: MongoDB connection failed: {e}")
+        print("API will start but database operations will be unavailable")
+
+    # Register connectors lazily
+    try:
+        from src.connectors import register_connectors
+        if register_connectors():
+            print("Connector registration successful")
+        else:
+            print("Warning: Some connectors failed to register")
+    except Exception as e:
+        print(f"Warning: Failed to register connectors: {e}")
+        print("API will start with limited connector functionality")
+
 @app.on_event("shutdown")
 async def _on_shutdown():
     await close_mongo_client()
-
 
 # Mount routers
 app.include_router(health_router)

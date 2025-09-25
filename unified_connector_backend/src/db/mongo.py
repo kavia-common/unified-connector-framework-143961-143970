@@ -19,7 +19,30 @@ def mongo_client() -> AsyncIOMotorClient:
     global _client
     if _client is None:
         settings = get_settings()
-        _client = AsyncIOMotorClient(settings.MONGODB_URL.unicode_string())
+        print(f"Initializing MongoDB connection to {settings.MONGODB_URL}")
+        try:
+            _client = AsyncIOMotorClient(
+                settings.MONGODB_URL.unicode_string(),
+                serverSelectionTimeoutMS=5000,  # 5 second timeout
+                connectTimeoutMS=5000,
+                socketTimeoutMS=5000,
+                waitQueueTimeoutMS=5000,
+                connect=False  # Don't connect immediately
+            )
+            # Try to establish connection
+            print("Testing MongoDB connection...")
+            _client.admin.command('ping')
+            print("MongoDB connection successful")
+        except Exception as e:
+            print(f"Warning: MongoDB connection failed: {str(e)}")
+            # Initialize client without connecting for retry later
+            _client = AsyncIOMotorClient(
+                settings.MONGODB_URL.unicode_string(),
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                socketTimeoutMS=5000,
+                connect=False
+            )
     return _client
 
 

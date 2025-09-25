@@ -2,14 +2,22 @@
 Connectors package initializer ensures example and Atlassian connectors are registered on import.
 """
 
-# Register example connectors for scaffolding
-from . import examples  # noqa: F401
+from .registry import registry as _registry
 
-# Register Atlassian connectors (Jira, Confluence)
-from .jira.connector import JiraConnector  # noqa: F401
-from .confluence.connector import ConfluenceConnector  # noqa: F401
-from .registry import registry as _registry  # noqa: F401
+# Make registration lazy to avoid startup blocking
+def register_connectors():
+    try:
+        # Import connectors only when needed
+        from .jira.connector import JiraConnector
+        from .confluence.connector import ConfluenceConnector
+        from . import examples  # Register example connectors
+        
+        _registry.register(JiraConnector())
+        _registry.register(ConfluenceConnector())
+        return True
+    except Exception as e:
+        print(f"Warning: Failed to register connectors: {e}")
+        return False
 
-# Instantiate and register on import to make them available in /api/connectors
-_registry.register(JiraConnector())
-_registry.register(ConfluenceConnector())
+# Export registry for access
+__all__ = ['_registry', 'register_connectors']

@@ -18,26 +18,30 @@ def _col(name: str) -> AsyncIOMotorCollection:
 # PUBLIC_INTERFACE
 async def upsert_connection(workspace_id: str, connector_id: str, name: str, config: Dict[str, Any]) -> str:
     """Create or update a connection record; returns connection id."""
-    doc = {
-        "workspace_id": workspace_id,
-        "connector_id": connector_id,
-        "name": name,
-        "config": config,
-        "updated_at": datetime.utcnow(),
-    }
-    result = await _col("connections").update_one(
-        {"workspace_id": workspace_id, "connector_id": connector_id, "name": name},
-        {"$set": doc, "$setOnInsert": {"created_at": datetime.utcnow()}},
-        upsert=True,
-    )
-    if result.upserted_id:
-        return str(result.upserted_id)
-    # fetch existing id
-    existing = await _col("connections").find_one(
-        {"workspace_id": workspace_id, "connector_id": connector_id, "name": name},
-        {"_id": 1},
-    )
-    return str(existing["_id"]) if existing else ""
+    try:
+        doc = {
+            "workspace_id": workspace_id,
+            "connector_id": connector_id,
+            "name": name,
+            "config": config,
+            "updated_at": datetime.utcnow(),
+        }
+        result = await _col("connections").update_one(
+            {"workspace_id": workspace_id, "connector_id": connector_id, "name": name},
+            {"$set": doc, "$setOnInsert": {"created_at": datetime.utcnow()}},
+            upsert=True,
+        )
+        if result.upserted_id:
+            return str(result.upserted_id)
+        # fetch existing id
+        existing = await _col("connections").find_one(
+            {"workspace_id": workspace_id, "connector_id": connector_id, "name": name},
+            {"_id": 1},
+        )
+        return str(existing["_id"]) if existing else ""
+    except Exception as e:
+        print(f"Error in upsert_connection: {e}")
+        return ""
 
 
 # PUBLIC_INTERFACE

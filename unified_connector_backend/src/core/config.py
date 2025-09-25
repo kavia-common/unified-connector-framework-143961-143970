@@ -22,14 +22,14 @@ class Settings(BaseSettings):
             "license_info": {"name": "Proprietary"},
             "x-theme": {
                 "name": "Ocean Professional",
-                "primary": self.THEME_PRIMARY,
-                "secondary": self.THEME_SECONDARY,
-                "success": self.THEME_SUCCESS,
-                "error": self.THEME_ERROR,
-                "gradient": self.THEME_GRADIENT,
-                "background": self.THEME_BACKGROUND,
-                "surface": self.THEME_SURFACE,
-                "text": self.THEME_TEXT,
+                "primary": "#2563EB",
+                "secondary": "#F59E0B", 
+                "success": "#10B981",
+                "error": "#EF4444",
+                "gradient": "from-blue-500/10 to-gray-50",
+                "background": "#f9fafb",
+                "surface": "#ffffff",
+                "text": "#111827"
             },
         }
 
