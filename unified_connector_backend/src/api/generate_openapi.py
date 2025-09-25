@@ -1,6 +1,8 @@
 import json
 import os
 
+# Ensure connectors are loaded for tags and examples
+import src.connectors  # noqa: F401
 from src.api.main import app
 
 # Get the OpenAPI schema
