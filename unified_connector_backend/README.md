@@ -1,113 +1,111 @@
-# unified-connector-framework-143961-143970
+# Unified Connector Backend (FastAPI)
 
-Backend (FastAPI) is scaffolded under unified_connector_backend with:
-- Connector core (BaseConnector, registry, manager)
+This service exposes REST APIs to manage connectors, drive OAuth/API Key onboarding, persist connection credentials, and browse resources using a unified response envelope.
+
+Core capabilities:
+- Modular connector architecture: BaseConnector, registry, manager
+- Production-grade example connectors: Jira and Confluence; example stubs: PostgreSQL, Salesforce
+- Unified Envelope responses: { ok, data, error }
+- OAuth/PKCE helpers and consistent connect/connect/callback routes
 - MongoDB persistence (connections, tokens, sync_states, audit_logs)
-- Encryption service (Fernet)
-- API routes: / (health), /api/connectors, /api/connections
-- Logging and config with Ocean Professional theme metadata
-- NEW: Tenant-scoping middleware and structured JSON logging with correlation IDs and masking
+- Token encryption via Fernet with masked logs and tenant-aware context
+- Structured JSON logging with correlation and tenant scoping
 
-Key endpoints (enveloped):
-- GET   /api/connectors
-- GET   /api/connectors/{id}
-- PATCH /api/connectors/{id}
-- POST  /api/connectors/{id}/probe
-- POST  /api/connectors/{id}/jobs
-- POST  /api/connectors/{id}/connect                # oauth2/api_key init
-- POST  /api/connectors/{id}/connect/callback       # completion (code or api key)
-- POST  /api/connectors/{id}/validate
-- POST  /api/connectors/{id}/revoke
-- GET   /api/connectors/{id}/containers
-- GET   /api/connectors/{id}/items
-- GET   /api/connectors/{id}/comments
-- POST  /api/connectors/{id}/webhooks
-- DELETE /api/connectors/{id}/webhooks
+Quick start:
+1) cp .env.example .env
+2) python -m pip install -r requirements.txt
+3) uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+Docs: http://localhost:8000/docs
+Generate static OpenAPI: python -m src.api.generate_openapi (writes interfaces/openapi.json)
 
-- GET   /api/connections                            # (scaffold list)
-- POST  /api/connections                            # upsert (create or update)
-- POST  /api/connections/token                      # persist encrypted token
-- POST  /api/connections/validate                   # connector.validate
-- POST  /api/connections/revoke                     # revoke (stub)
-- GET   /api/connections/{connectionId}/token       # fetch plaintext (internal use)
-- GET   /api/connections/{connectionId}/sync-state  # get cursor
-- POST  /api/connections/{connectionId}/sync-state  # set cursor
-
-OAuth/PKCE and CSRF:
-- CSRF state and PKCE helpers scaffolded in src/core/oauth.py.
-- For production, store PKCE code_verifier server-side and validate state against cookie (double submit).
-- Current implementation returns codeVerifier to client for development.
-
-Getting started:
-1) cd unified_connector_backend
-2) cp .env.example .env  # fill ENCRYPTION_KEY and Mongo settings
-3) pip install -r requirements.txt
-4) uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
-
-Generate OpenAPI file for interfaces/:
-python -m src.api.generate_openapi
-
-Key environment variables:
+Environment variables (.env.example included):
+- APP_NAME, APP_DESCRIPTION, APP_VERSION
+- API_PREFIX=/api
 - MONGODB_URL, MONGODB_DB
-- ENCRYPTION_KEY (Fernet key) — REQUIRED for production
-- LOG_LEVEL, LOG_JSON
-- API_PREFIX
+- ENCRYPTION_KEY  # base64-urlsafe 32-byte key; REQUIRED for production
+- LOG_LEVEL=INFO, LOG_JSON=false
+- CORS_ALLOW_ORIGINS=["*"], CORS_ALLOW_HEADERS=["*"], etc.
 
-OpenAPI docs at /docs when running.
+Unified Envelope format:
+- Success: { "ok": true, "data": { ... } }
+- Error: HTTP 4xx/5xx with detail UnifiedError { code, message, details? }
 
-Note: Example connectors (PostgreSQL, Salesforce) are stubs for development.
-New: Production-grade example connectors added:
-- Jira (OAuth2 or API key) under src/connectors/jira
-- Confluence (OAuth2 or API key) under src/connectors/confluence
+Headers:
+- X-Tenant-Id: tenant/workspace scoping (recommended/expected)
+- X-Request-Id or X-Correlation-Id: optional; auto-generated if absent
+- X-Api-Tag: optional; included in completion logs
 
-Usage:
-- List connectors: GET /api/connectors
-- Probe Jira: POST /api/connectors/jira/probe (via jobs or probe endpoint) or /api/connectors/jira/validate
-- Containers/items/comments via:
-  - GET /api/connectors/{id}/containers
-  - GET /api/connectors/{id}/items
-  - GET /api/connectors/{id}/comments
+Key endpoints:
+- Health: GET /
+- Connectors:
+  - GET /api/connectors
+  - GET /api/connectors/{id}
+  - PATCH /api/connectors/{id}
+  - POST /api/connectors/{id}/probe
+  - POST /api/connectors/{id}/jobs
+  - POST /api/connectors/{id}/connect
+  - POST /api/connectors/{id}/connect/callback
+  - POST /api/connectors/{id}/validate
+  - POST /api/connectors/{id}/revoke
+  - GET  /api/connectors/{id}/containers
+  - GET  /api/connectors/{id}/items
+  - GET  /api/connectors/{id}/comments
+  - POST /api/connectors/{id}/webhooks
+  - DELETE /api/connectors/{id}/webhooks
+- Connections:
+  - GET  /api/connections
+  - POST /api/connections
+  - POST /api/connections/token
+  - POST /api/connections/validate
+  - POST /api/connections/revoke
+  - GET  /api/connections/{connectionId}/token
+  - GET  /api/connections/{connectionId}/sync-state
+  - POST /api/connections/{connectionId}/sync-state
 
-Config examples (request bodies):
-{
-  "base_url": "https://your-domain.atlassian.net",
-  "auth_method": "api_key",
-  "api_email": "you@example.com",
-  "api_token": "<jira_api_token>"
-}
-or OAuth2:
-{
-  "base_url": "https://your-domain.atlassian.net",
-  "auth_method": "oauth2",
-  "access_token": "<access>",
-  "refresh_token": "<refresh>",
-  "client_id": "<client_id>",
-  "client_secret": "<client_secret>",
-  "scopes": ["read:jira-work", "offline_access"]
-}
+OAuth & API Key flows (summary):
+- OAuth Init:
+  POST /api/connectors/{id}/connect
+  Body: { workspaceId, method: "oauth2", redirectUri, scopes[], csrfToken? }
+  Returns: { authUrl, state, codeChallenge, codeVerifier }
+  Note: In production, store codeVerifier server-side and validate CSRF (double submit cookie).
+- OAuth Callback:
+  POST /api/connectors/{id}/connect/callback
+  Body: { workspaceId, code, state, codeVerifier }
+  Returns: { connectionId, status: "connected" }
+- API Key:
+  Init returns expected header hint; complete with:
+  POST /api/connectors/{id}/connect/callback
+  Body: { workspaceId, apiKey, apiSecret? }
+  Returns: { connectionId, status: "connected" }
+- Persist encrypted tokens:
+  POST /api/connections/token
+  Body: { connectionId, token } → stored encrypted via Fernet
+- Validate configuration:
+  POST /api/connectors/{id}/validate or /api/connections/validate
+
+Unified resource browsing:
+- Containers/items/comments exposed at connectors endpoints to standardize resource exploration across providers.
 
 Security:
-- Do not hardcode secrets; use /api/connections/token for encrypted storage.
-- ENCRYPTION_KEY must be set in production. Without it, an ephemeral key is generated for development and secrets will not persist across restarts.
-- Secrets are masked in logs by default (password/secret/token/client_secret/api_key/authorization fields are redacted).
+- Never log secrets; middleware masks common sensitive keys.
+- Require ENCRYPTION_KEY in production; without it, a per-process ephemeral key is generated (non-persistent).
+- Use /api/connections/token to store secrets; avoid returning secrets to clients.
 
-Tenant context and correlation IDs:
-- All API calls should include:
-  - X-Tenant-Id: required to scope operations to a tenant/workspace.
-  - X-Request-Id (or X-Correlation-Id): optional; if absent, the server generates one.
-- Middleware attaches these to request.state.tenant_id and request.state.correlation_id.
-- Logs include tenant_id and request_id fields for traceability.
-- Optional X-Api-Tag header can be sent to label calls for dashboards.
+Architecture overview:
+- src/connectors/*: base, registry, manager, and per-provider adapters (jira, confluence)
+- src/core/*: config, logging, middleware, oauth, security, errors
+- src/models/*: Pydantic schemas and envelope
+- src/db/*: Mongo client setup
+- src/services/encryption.py: Fernet-based encryption
+- src/api/routes/*: FastAPI routers for health, connectors, connections
 
-Logging:
-- Enable JSON logs by setting LOG_JSON=true in .env (recommended for production).
-- Each request emits a single structured completion log with:
-  - method, path, status_code, duration_ms, tenant_id, request_id, api_tag.
-- Error counts and basic request timing are captured as placeholders for future metrics integration.
+Testing (minimal guidance):
+- Unit: registry behavior, mapping helpers
+- Integration (scaffold): OAuth init/callback flow returns expected envelope and structure
+- Smoke: containers/items/comments routes return enveloped, non-error responses for stub configs
 
-Metrics (placeholder):
-- In-memory counters and durations are recorded in middleware as a stepping stone for a real metrics backend (e.g., Prometheus).
-- Replace with a proper metrics client in production.
+Notes:
+- Jira/Confluence examples are designed to be production-grade but should not be used without configuring real credentials.
+- Example DB/SaaS connectors are stubs for development and testing.
 
-Environment:
-- See .env.example for required and optional variables, including LOG_JSON and ENCRYPTION_KEY.
+License: Proprietary (example).
