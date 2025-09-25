@@ -55,3 +55,34 @@ Key environment variables:
 OpenAPI docs at /docs when running.
 
 Note: Example connectors (PostgreSQL, Salesforce) are stubs for development.
+New: Production-grade example connectors added:
+- Jira (OAuth2 or API key) under src/connectors/jira
+- Confluence (OAuth2 or API key) under src/connectors/confluence
+
+Usage:
+- List connectors: GET /api/connectors
+- Probe Jira: POST /api/connectors/jira/probe (via jobs or probe endpoint) or /api/connectors/jira/validate
+- Containers/items/comments via:
+  - GET /api/connectors/{id}/containers
+  - GET /api/connectors/{id}/items
+  - GET /api/connectors/{id}/comments
+
+Config examples (request bodies):
+{
+  "base_url": "https://your-domain.atlassian.net",
+  "auth_method": "api_key",
+  "api_email": "you@example.com",
+  "api_token": "<jira_api_token>"
+}
+or OAuth2:
+{
+  "base_url": "https://your-domain.atlassian.net",
+  "auth_method": "oauth2",
+  "access_token": "<access>",
+  "refresh_token": "<refresh>",
+  "client_id": "<client_id>",
+  "client_secret": "<client_secret>",
+  "scopes": ["read:jira-work", "offline_access"]
+}
+
+Security: Do not hardcode secrets; use /api/connections/token for encrypted storage.
